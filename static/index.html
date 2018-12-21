@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="divport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>WebSocket聊天demo</title>
+  <link href="css/element-ui.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+  <div id="app">
+    <div v-if="!isSupportWebSocket">您的浏览器不支持WebSocket,无发正常使用聊天功能，请下载最新版的Chrome浏览器，搜狗浏览器或其他最新版本的浏览器</div>
+    <el-form ref="myForm" v-model="myForm" inline>
+      <el-form-item label="WebSocket地址">
+        <el-input v-model="myForm.server" size="small"></el-input>
+      </el-form-item>
+      <el-form-item label="用户昵称">
+        <el-input v-model="myForm.userNickname" size="small"></el-input>
+      </el-form-item>
+      <el-form-item label="服务昵称">
+        <el-input v-model="myForm.serverNickname" size="small"></el-input>
+      </el-form-item>
+    </el-form>
+    <el-button type="primary" v-if="isSupportWebSocket" size="small" @click="initWs(true)">换个人聊天</el-button>
+    <el-button type="primary" size="small" @click="saySomething">说点啥</el-button>
+    <el-input @keyup.enter.native="saySomething" v-model="myForm.word" placeholder="说点啥" size="small" style="width: 200px;"></el-input>
+    <br>
+    <br>
+    <el-button type="primary" size="small" @click="saySomething3">测试图灵接口</el-button>
+    <div class="chat-wrapper" ref="chat-wrapper" v-if="chatData.length">
+      <div class="chat-item clearfix" v-for="item in chatData" :key="item.id">
+        <div v-if="item.isGuest" class='guest-reply clearfix'>
+          <div class='chat-avatar-container guest-avatar-container'>
+            <img :src="item.avatar" alt="" class='chat-avatar'>
+          </div>
+          <div class='chat-content guest-content'>{{item.content}}</div>
+        </div>
+        <div v-else class='clearfix'>
+          <div class='chat-avatar-container system-avatar-container'>
+            <img :src="item.avatar" alt="" class='chat-avatar'>
+          </div>
+          <div class='chat-content system-content'>{{item.content}}</div>
+        </div>
+      </div>
+    </div>
+    <!-- {{chatData}} -->
+  </div>
+  <script src="js/polyfill.min.js"></script>
+  <script src="js/vue.js"></script>
+  <script src="js/element-ui.min.js"></script>
+
+  <!-- <script src="js/socket.io.js"></script> -->
+  <script src="js/logic.js"></script>
+  <script src="js/axios.js"></script>
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        ws: null,
+        isSupportWebSocket: true,
+        chatData: [],
+        avatarUrlMap: {
+          0: 'images/lei.jpg',
+          1: 'images/mao.jpg'
+        },
+        myForm: {
+          server: 'ws://localhost:8888',
+          userNickname: '小雷',
+          serverNickname: '毛爷爷',
+          word: ''
+        },
+      },
+      mounted: function(){
+        var vm = this
+        vm.checkWebSocket()
+      },
+      methods: {
+        checkWebSocket: function(){
+          var vm = this
+          if(typeof(WebSocket) != 'function'){
+            vm.isSupportWebSocket = false
+            vm.$message({
+              message: '您的浏览器不支持WebSocket,聊天功能无法正常使用，推荐更新浏览器或者下载chrome浏览器',
+              showClose: true,
+              duration: 0,
+            })
+          }else{
+            vm.initWs()
+          }
+        },
+        saySomething: function(){
+          var vm = this
+          if(vm.ws){
+            var word = vm.myForm.word
+            if(word){
+              var sendChat = {
+                name: vm.myForm.userNickname,
+                word: word
+              }
+              var sendChatJSONString = JSON.stringify(sendChat)
+              vm.ws.send(sendChatJSONString)
+              // vm.ws.send(word)
+              var chat = {
+                id: parseInt(Math.random()*1000000000000),
+                isGuest: true,
+                avatar: 'images/lei.jpg',
+                content: word
+              }
+              vm.chatData.push(chat)
+              vm.myForm.word = ''
+              vm.$nextTick(function(){
+                var container = vm.$refs['chat-wrapper']
+                container.scrollTop = container.scrollHeight
+              })
+            }else{
+              vm.$message.warning('您倒是说点啥啊！')
+            }
+          }else{
+            vm.$message.warning('请先点击连接服务器按钮连接服务器')
+          }
+        },
+        saySomething3: function(){
+          var url = '/openapi/api/v2'
+          var data = {
+            "text": '深圳天气'
+          }
+          var params = {
+            url,
+            method: 'get',
+            params: data
+          }
+          axios(params).then(function(res){
+            console.log('res: ',res.data)
+            
+          }).catch(function(err){
+            console.log('err: ',err)
+          })
+        },
+        updateChat: function(JSONString){
+          var vm = this
+          // var chat = {
+          //   id: parseInt(Math.random()*1000000000000),
+          //   isGuest: false,
+          //   avatar: 'images/mao.jpg',
+          //   content: text
+          // }
+          var chat = JSON.parse(JSONString)
+          vm.chatData.push(chat)
+          vm.$nextTick(function(){
+            var container = vm.$refs['chat-wrapper']
+            container.scrollTop = container.scrollHeight
+          })
+        },
+        initWs: function(clear){
+          var vm = this
+          // 重连时清空聊天记录
+          if(typeof clear == 'boolean' && clear){
+            vm.chatData = []
+            vm.$message.success('已为您更换聊天对象')
+          }
+          // 如果连接已存在，先断开连接
+          if(vm.ws){
+            vm.ws.close()
+          }
+          var url = vm.myForm.server
+          var ws = new WebSocket(url)
+          // var ws = io(url)
+          ws.onmessage = function(e){
+            vm.updateChat(e.data)
+          }
+          ws.onopen = function(e){
+            // console.log('-----------------')
+            // console.log('onopen :', e)
+            // console.log('-----------------')
+          }
+          ws.onclose = function(e){
+            // console.log('-----------------')
+            // console.log('onclose :', e)
+            // console.log('关闭连接后触发')
+            // console.log('-----------------')
+          }
+          ws.onerror = function(e){
+            // console.log('-----------------')
+            // console.log('onerror 后关闭链接:', e)
+            // console.log('-----------------')
+            ws.close()
+          }
+          vm.ws = ws
+        }
+      }
+    })
+     
+  </script>
+</body>
+</html>

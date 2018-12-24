@@ -27,7 +27,22 @@
     <el-input @keyup.enter.native="saySomething" v-model="myForm.word" placeholder="说点啥" size="small" style="width: 200px;"></el-input>
     <br>
     <br>
-    <el-button type="primary" size="small" @click="saySomething3">测试图灵接口</el-button>
+    <el-upload
+      style="width: 300px;"
+      class="upload-demo"
+      :action="url.upload"
+      :on-preview="handlePreview"
+      :on-remove="handleRemove"
+      :before-remove="beforeRemove"
+      multiple
+      :limit="3"
+      :on-exceed="handleExceed"
+      :file-list="fileList">
+      <el-button size="small" type="primary">点击上传</el-button>
+      <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过500kb</div>
+    </el-upload>
+    <br>
+    <br>
     <div class="chat-wrapper" ref="chat-wrapper" v-if="chatData.length">
       <div class="chat-item clearfix" v-for="item in chatData" :key="item.id">
         <div v-if="item.isGuest" class='guest-reply clearfix'>
@@ -57,6 +72,14 @@
     new Vue({
       el: '#app',
       data: {
+        url: {
+          chat: '/chatRobot',
+          upload: '/upload'
+        },
+        // 
+        fileList: [],
+
+        // 
         ws: null,
         isSupportWebSocket: true,
         chatData: [],
@@ -76,6 +99,20 @@
         vm.checkWebSocket()
       },
       methods: {
+        // 上传文件
+        handlePreview: function(file){
+
+        },
+        handleExceed: function(file, fileList){
+
+        },
+        beforeRemove: function(file, fileList){
+
+        },
+        handleRemove: function(file, fileList){
+
+        },
+        // 上传文件end
         checkWebSocket: function(){
           var vm = this
           if(typeof(WebSocket) != 'function'){
@@ -119,23 +156,6 @@
           }else{
             vm.$message.warning('请先点击连接服务器按钮连接服务器')
           }
-        },
-        saySomething3: function(){
-          var url = '/openapi/api/v2'
-          var data = {
-            "text": '深圳天气'
-          }
-          var params = {
-            url,
-            method: 'get',
-            params: data
-          }
-          axios(params).then(function(res){
-            console.log('res: ',res.data)
-            
-          }).catch(function(err){
-            console.log('err: ',err)
-          })
         },
         updateChat: function(JSONString){
           var vm = this

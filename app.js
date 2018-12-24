@@ -5,6 +5,13 @@ const WebSocket = require('ws')
 // GET 请求的参数在URL中，在原生Node中，需要使用url模块来识别参数字符串。在Express 中，不需要使用url模块了。可以直接使用req.query对象。
 // POST 请求在 express 中不能直接获得，可以使用 body-parser 模块。使用后，将可以用 req.body 得到参数。但是如果表单中含有文件上传，那么还是需要使用 formidable 模块。
 const bodyParser = require('body-parser')
+
+// 导入router
+const uploadRouter = require('./server/routes/upload')
+
+app.use(bodyParser.json());  //  格式化  application/json
+app.use(bodyParser.urlencoded({extended: true}));  //  格式化  application/x-www-urlencoded
+
 // 服务器端口
 const server_port = 3000
 const ws_port = 8888
@@ -13,8 +20,16 @@ const ws = new WebSocket.Server({ port: ws_port })
 const hotAvatar = 'http://7647778.s21i-7.faiusr.com/3/ABUIABADGAAg_d7lzwUokKa3jQMw9AM4-AM.gif'
 const coldAvatar = 'http://img3.duitang.com/uploads/item/201501/05/20150105094517_mQyet.jpeg'
 
-// const data = utils.getChatWord('深圳天气')
+app.all('*', function(req, res, next) {  
+  res.header("Access-Control-Allow-Origin", "*");  
+  res.header("Access-Control-Allow-Headers", "X-Requested-With");  
+  res.header("Access-Control-Allow-Methods","PUT,POST,GET,DELETE,OPTIONS");  
+  res.header("X-Powered-By",' 3.2.1')  
+  res.header("Content-Type", "application/json;charset=utf-8");  
+  next();  
+});
 
+// WebSocket
 ws.on('connection', function connection(ws) {
   // -------------------词库聊天---------------------
   // 建立连接时确定词库
@@ -75,15 +90,17 @@ ws.on('connection', function connection(ws) {
   })
 })
 
-app.use(bodyParser.json())
-
+// 静态文件支持
 app.use(express.static(__dirname + '/static'))
 
 // 手动调机器人接口
-app.use('/openapi/api/v2', function (req, res) {
+app.use('/chatRobot', function (req, res) {
   // req.body  请求体  需要body-parser中间件
   // req.query  查询参数
-  // req.params 
+  // req.params 路径参数 实例：
+  // Route path: /users/:userId/books/:bookId
+  // Request URL: http://localhost:3000/users/34/books/8989
+  // req.params: { "userId": "34", "bookId": "8989" }
   if (req.method && req.method.toLowerCase() == 'get') {
     const text = req.query.text
     utils.getChatWord(text).then(function (r) {
@@ -105,6 +122,8 @@ app.use('/openapi/api/v2', function (req, res) {
     res.status(405).send(JSON.stringify(e))
   }
 })
+
+app.use('/upload', uploadRouter)
 
 app.listen(server_port, function () {
   console.log('listening on port ' + server_port)
